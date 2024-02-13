@@ -1,5 +1,5 @@
 import socket
-from typing import Tuple, Dict, Callable
+from typing import Tuple, Dict, Callable, Optional
 import json
 
 import paramiko as pko
@@ -61,11 +61,14 @@ class _IPVS_SSH_Server_Handler(pko.ServerInterface):
         return pko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
 def create_ipvs_ssh_server(
-        ssh_bind_addr: Tuple[str, int],
         ipvs_req_handlers: Dict[int, IPVS_Request_Handler],
         ipvs_info: dict,
-        host_key: pko.PKey
+        host_key: pko.PKey,
+        bind_addr: Optional[Tuple[str, int]] = None
 ):
+    if bind_addr is None:
+        bind_addr = ('127.0.0.1', 0)
+    
     def handle_json_info(req: IPVS_Request):
         info_json = json.dumps(ipvs_info).encode()
         req.chan.send(info_json)
@@ -97,7 +100,7 @@ def create_ipvs_ssh_server(
             finally:
                 chan.close()
 
-    server = create_tcp_server(ssh_bind_addr, handle_request)
+    server = create_tcp_server(bind_addr, handle_request)
 
     return server
 
