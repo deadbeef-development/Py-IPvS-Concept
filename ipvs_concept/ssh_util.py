@@ -78,6 +78,7 @@ def create_ipvs_ssh_server(
     def handle_json_info(req: IPVS_Request):
         info_json = json.dumps(ipvs_info).encode()
         req.chan.send(info_json)
+        req.chan.close()
 
     def handle_request(req: Request):
         ssh_server_handler = _IPVS_SSH_Server_Handler(ipvs_req_handlers, ipvs_info)
