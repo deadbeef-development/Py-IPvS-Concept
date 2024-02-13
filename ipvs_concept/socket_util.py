@@ -49,3 +49,16 @@ def transfer(sock1: socket.socket, sock2: socket.socket):
 def transfer_echo(sock: socket.socket):
     _transfer1(sock, sock)
 
+def receive_all(source: socket.socket) -> bytes:
+    result = bytearray()
+
+    while True:
+        data = source.recv(TRANSFER_BUF_SIZE)
+
+        if data:
+            result.extend(data)
+        else:
+            break
+    
+    return bytes(result)
+
