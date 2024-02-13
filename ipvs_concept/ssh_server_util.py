@@ -9,7 +9,12 @@ LOOPBACK = '127.0.0.1'
 IPVS_USERNAME = 'ipvs'
 IPVS_INFO_PORT = 230
 
-Channel_Handler = Callable[[paramiko.Channel], None]
+class IPVS_Request:
+    def __init__(self, chan: paramiko.Channel, client_identity: paramiko.PKey):
+        self.chan = chan
+        self.identity = client_identity
+
+IPVS_Request_Handler = Callable[[IPVS_Request], None]
 
 def proxy_pass(chan: paramiko.Channel, dest_addr: Tuple[str, int]):
     dest_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -22,17 +27,19 @@ def proxy_pass(chan: paramiko.Channel, dest_addr: Tuple[str, int]):
     finally:
         dest_sock.close()
 
+# Designed for only one instance per transport.
 class _IPVS_SSH_Server_Handler(paramiko.ServerInterface):
-    def __init__(self, channel_handlers: Dict[int, Channel_Handler], ipvs_info: Dict):
+    def __init__(self, ipvs_req_handlers: Dict[int, IPVS_Request_Handler], ipvs_info: Dict):
         super().__init__()
-        self.channel_handlers = channel_handlers
+        self.ipvs_req_handlers = ipvs_req_handlers
         self.ipvs_info = ipvs_info
         
-        # (Chanid, Dest Port)
-        self.pending_tcpip_request_channels: Dict[int, int] = dict()
+        self.client_identity = None
+        self.dest_port = None
     
     def check_auth_publickey(self, username: str, key: paramiko.PKey):
         if username == 'ipvs':
+            self.client_identity = key
             return paramiko.AUTH_SUCCESSFUL
         
         return paramiko.AUTH_FAILED
@@ -44,27 +51,27 @@ class _IPVS_SSH_Server_Handler(paramiko.ServerInterface):
         origin_host, origin_port = origin
         dest_host, dest_port = destination
 
-        is_valid_port = (dest_port in self.channel_handlers) or (dest_port == IPVS_INFO_PORT)
+        is_valid_port = (dest_port in self.ipvs_req_handlers) or (dest_port == IPVS_INFO_PORT)
 
         if (dest_host == LOOPBACK) and (is_valid_port):
-            self.pending_tcpip_request_channels[chanid] = dest_port
+            self.dest_port = dest_port
             return paramiko.OPEN_SUCCEEDED
 
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
 def create_ipvs_ssh_server(
         ssh_bind_addr: Tuple[str, int],
-        channel_handlers: Dict[int, Channel_Handler],
+        ipvs_req_handlers: Dict[int, IPVS_Request_Handler],
         ipvs_info: dict,
         host_key: paramiko.PKey
 ):
-    ssh_server_handler = _IPVS_SSH_Server_Handler(channel_handlers, ipvs_info)
-
-    def handle_json_info(chan: paramiko.Channel):
+    def handle_json_info(req: IPVS_Request):
         info_json = json.dumps(ipvs_info).encode()
-        chan.send(info_json)
+        req.chan.send(info_json)
 
     def handle_request(req: Request):
+        ssh_server_handler = _IPVS_SSH_Server_Handler(ipvs_req_handlers, ipvs_info)
+
         transport = paramiko.Transport(req.request)
         transport.add_server_key(host_key)
         transport.start_server(server=ssh_server_handler)
@@ -74,15 +81,18 @@ def create_ipvs_ssh_server(
         if (chan is None) or (not chan.active):
             return
         else:
-            dest_port = ssh_server_handler.pending_tcpip_request_channels[chan.chanid]
+            client_identity = ssh_server_handler.client_identity
+            dest_port = ssh_server_handler.dest_port
 
             if dest_port == IPVS_INFO_PORT:
                 handle_channel = handle_json_info
             else:
-                handle_channel = channel_handlers[dest_port]
+                handle_channel = ipvs_req_handlers[dest_port]
+            
+            req = IPVS_Request(chan, client_identity)
 
             try:
-                handle_channel(chan)
+                handle_channel(req)
             finally:
                 chan.close()
 
