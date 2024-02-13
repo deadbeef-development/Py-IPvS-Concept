@@ -3,7 +3,7 @@ import paramiko as pko
 from typing import Tuple, Dict, Callable
 import json
 
-from socket_util import Request, create_tcp_server, transfer
+from .socket_util import Request, create_tcp_server, transfer
 
 LOOPBACK = '127.0.0.1'
 IPVS_USERNAME = 'ipvs'
