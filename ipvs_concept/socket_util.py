@@ -46,3 +46,6 @@ def transfer(sock1: socket.socket, sock2: socket.socket):
     t1.join()
     t2.join()
 
+def transfer_echo(sock: socket.socket):
+    _transfer1(sock, sock)
+
