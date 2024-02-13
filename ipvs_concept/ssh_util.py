@@ -28,6 +28,12 @@ def proxy_pass(chan: pko.Channel, dest_addr: Tuple[str, int]):
     finally:
         dest_sock.close()
 
+def get_proxy_pass_handler(dest_addr: Tuple[str, int]):
+    def proxy_pass_Handler(req: IPVS_Request):
+        proxy_pass(req.chan, dest_addr)
+    
+    return proxy_pass_Handler
+
 # Designed for only one instance per transport.
 class _IPVS_SSH_Server_Handler(pko.ServerInterface):
     def __init__(self, ipvs_req_handlers: Dict[int, IPVS_Request_Handler], ipvs_info: Dict):
@@ -103,4 +109,42 @@ def create_ipvs_ssh_server(
     server = create_tcp_server(bind_addr, handle_request)
 
     return server
+
+def get_pubkey_from_ipvs_address(ipvs_addr: str) -> pko.PKey:
+    parts = ipvs_addr.strip().lower().split('.')
+
+    if parts[-1] != 'ipvs':
+        raise ValueError("Not an IPVS address")
+
+    # <pubkey hex>.<pubkey type>.ipvs
+
+    pubkey_hex = parts[-3]
+    pubkey_type = 'ssh-' + parts[-2]
+    
+    pubkey_bytes = bytes.fromhex(pubkey_hex)
+
+    return pko.PKey.from_type_string(pubkey_type, pubkey_bytes)
+
+def connect_to_ipvs_ssh_server(ssh_server_addr: Tuple[str, int], dest_port: int, ssh_server_pubkey: pko.PKey, client_identity: pko.PKey):
+    ssh_host, ssh_port = ssh_server_addr
+
+    host_entry = f"[{ssh_host}]:{ssh_port}"
+
+    ssh_client = pko.SSHClient()
+    ssh_client.get_host_keys().add(host_entry, ssh_server_pubkey.get_name(), ssh_server_pubkey)
+
+    ssh_client.connect(
+        hostname=ssh_host,
+        port=ssh_port,
+        username=IPVS_USERNAME,
+        pkey=client_identity
+    )
+
+    dest_addr = ('127.0.0.1', dest_port)
+    src_addr = ('127.0.0.1', 0)
+
+    transport = ssh_client.get_transport()
+    chan = transport.open_channel('direct-tcpip', dest_addr, src_addr)
+
+    return chan
 
