@@ -4,11 +4,10 @@ import json
 
 import paramiko as pko
 
-from .socket_util import Request, create_tcp_server, transfer
+from .socket_util import Request, create_tcp_server, transfer, receive_all
 
 LOOPBACK = '127.0.0.1'
 IPVS_USERNAME = 'ipvs'
-IPVS_INFO_PORT = 230
 
 class IPVS_Request:
     def __init__(self, chan: pko.Channel, client_identity: pko.PKey):
@@ -36,10 +35,9 @@ def get_proxy_pass_handler(dest_addr: Tuple[str, int]):
 
 # Designed for only one instance per transport.
 class _IPVS_SSH_Server_Handler(pko.ServerInterface):
-    def __init__(self, ipvs_req_handlers: Dict[int, IPVS_Request_Handler], ipvs_info: Dict):
+    def __init__(self, ipvs_req_handlers: Dict[int, IPVS_Request_Handler]):
         super().__init__()
         self.ipvs_req_handlers = ipvs_req_handlers
-        self.ipvs_info = ipvs_info
         
         self.client_identity = None
         self.dest_port = None
@@ -58,7 +56,7 @@ class _IPVS_SSH_Server_Handler(pko.ServerInterface):
         origin_host, origin_port = origin
         dest_host, dest_port = destination
 
-        is_valid_port = (dest_port in self.ipvs_req_handlers) or (dest_port == IPVS_INFO_PORT)
+        is_valid_port = (dest_port in self.ipvs_req_handlers)
 
         if (dest_host == LOOPBACK) and (is_valid_port):
             self.dest_port = dest_port
@@ -68,20 +66,14 @@ class _IPVS_SSH_Server_Handler(pko.ServerInterface):
 
 def create_ipvs_ssh_server(
         ipvs_req_handlers: Dict[int, IPVS_Request_Handler],
-        ipvs_info: dict,
         host_key: pko.PKey,
         bind_addr: Optional[Tuple[str, int]] = None
 ):
     if bind_addr is None:
         bind_addr = ('127.0.0.1', 0)
     
-    def handle_json_info(req: IPVS_Request):
-        info_json = json.dumps(ipvs_info).encode()
-        req.chan.send(info_json)
-        req.chan.close()
-
     def handle_request(req: Request):
-        ssh_server_handler = _IPVS_SSH_Server_Handler(ipvs_req_handlers, ipvs_info)
+        ssh_server_handler = _IPVS_SSH_Server_Handler(ipvs_req_handlers)
 
         transport = pko.Transport(req.request)
         transport.add_server_key(host_key)
@@ -95,10 +87,7 @@ def create_ipvs_ssh_server(
             client_identity = ssh_server_handler.client_identity
             dest_port = ssh_server_handler.dest_port
 
-            if dest_port == IPVS_INFO_PORT:
-                handle_channel = handle_json_info
-            else:
-                handle_channel = ipvs_req_handlers[dest_port]
+            handle_channel = ipvs_req_handlers[dest_port]
             
             req = IPVS_Request(chan, client_identity)
 
