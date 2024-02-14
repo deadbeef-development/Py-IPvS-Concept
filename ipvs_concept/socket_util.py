@@ -5,12 +5,12 @@ import threading
 TRANSFER_BUF_SIZE = 2**13
 
 class Request:
-    request: socket.socket
+    sock: socket.socket
     client_address: Tuple[str, int]
     server: socketserver.BaseServer
 
     def __init__(self, handler: socketserver.BaseRequestHandler):
-        self.request = handler.request
+        self.sock = handler.request
         self.client_address = handler.client_address
         self.server = handler.server
 

@@ -75,7 +75,7 @@ def create_ipvs_ssh_server(
     def handle_request(req: Request):
         ssh_server_handler = _IPVS_SSH_Server_Handler(ipvs_req_handlers)
 
-        transport = pko.Transport(req.request)
+        transport = pko.Transport(req.sock)
         transport.add_server_key(host_key)
         transport.start_server(server=ssh_server_handler)
 
