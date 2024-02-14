@@ -115,7 +115,11 @@ def get_pubkey_from_ipvs_address(ipvs_addr: str) -> pko.PKey:
 
     return pko.PKey.from_type_string(pubkey_type, pubkey_bytes)
 
-def connect_to_ipvs_ssh_server(ssh_server_addr: Tuple[str, int], dest_port: int, ssh_server_pubkey: pko.PKey, client_identity: pko.PKey):
+def connect_to_ipvs_ssh_server(
+        ssh_server_addr: Tuple[str, int], dest_port: int, 
+        ssh_server_pubkey: pko.PKey, client_identity: pko.PKey, 
+        existing_socket: socket.socket = None
+):
     ssh_host, ssh_port = ssh_server_addr
 
     host_entry = f"[{ssh_host}]:{ssh_port}"
@@ -127,7 +131,8 @@ def connect_to_ipvs_ssh_server(ssh_server_addr: Tuple[str, int], dest_port: int,
         hostname=ssh_host,
         port=ssh_port,
         username=IPVS_USERNAME,
-        pkey=client_identity
+        pkey=client_identity,
+        sock=existing_socket
     )
 
     dest_addr = ('127.0.0.1', dest_port)
