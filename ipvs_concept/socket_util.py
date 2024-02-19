@@ -27,6 +27,13 @@ def create_tcp_server(bind_addr: Tuple[str, int], handle_request: Callable[[Requ
 
     return server
 
+def serve_file_tcp(bind_addr: Tuple[str, int], content: bytes):
+    def handle_request(req: Request):
+        req.sock.send(content)
+        req.sock.close()
+    
+    return create_tcp_server(bind_addr, handle_request)
+
 def _transfer1(source: socket.socket, dest: socket.socket):
     while True:
         data = source.recv(TRANSFER_BUF_SIZE)
