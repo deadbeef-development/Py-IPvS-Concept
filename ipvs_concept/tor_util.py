@@ -15,7 +15,7 @@ def connect_to_tor(dest_addr: Tuple[str, int]) -> socks.socksocket:
     return sock
 
 @contextmanager
-def expose_to_tor(port_mappings: Dict[int, int], key_type: str = 'NEW', key_content: str = 'BEST'):
+def expose_to_tor(port: int, target_port: int, service_directory: str):
     tor_process = process.launch_tor_with_config(
         config = {
             'ControlPort': '9051',
@@ -27,11 +27,9 @@ def expose_to_tor(port_mappings: Dict[int, int], key_type: str = 'NEW', key_cont
     with Controller.from_port(port=9051) as controller:
         controller.authenticate()
 
-        result: AddOnionResponse = controller.create_ephemeral_hidden_service(
-            ports=port_mappings,
-            await_publication=True,
-            key_type=key_type,
-            key_content=key_content
+        result: AddOnionResponse = controller.create_hidden_service(
+            service_directory, port,
+            target_address='127.0.0.1', target_port=target_port
         )
 
         try:
