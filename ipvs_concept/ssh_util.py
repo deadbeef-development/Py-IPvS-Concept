@@ -64,7 +64,6 @@ class _IPVS_SSH_Server_Handler(pko.ServerInterface):
 
         return pko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
-@contextmanager
 def create_ipvs_ssh_server(
         ipvs_req_handlers: Dict[int, IPVS_Request_Handler],
         host_key: pko.PKey,
@@ -97,12 +96,7 @@ def create_ipvs_ssh_server(
             finally:
                 chan.close()
 
-    server = create_tcp_server(bind_addr, handle_request)
-
-    try:
-        yield server
-    finally:
-        server.shutdown()
+    return create_tcp_server(bind_addr, handle_request)
 
 @contextmanager
 def connect_to_ipvs_ssh_server(

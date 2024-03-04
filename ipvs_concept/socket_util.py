@@ -1,6 +1,7 @@
 from typing import Callable, Tuple
 import socket, socketserver
 import threading
+from contextlib import contextmanager
 
 TRANSFER_BUF_SIZE = 2**13
 
@@ -14,6 +15,7 @@ class Request:
         self.client_address = handler.client_address
         self.server = handler.server
 
+@contextmanager
 def create_tcp_server(bind_addr: Tuple[str, int], handle_request: Callable[[Request], None]) -> socketserver.TCPServer:
     class TCP_Handler(socketserver.BaseRequestHandler):
         def handle(self):
