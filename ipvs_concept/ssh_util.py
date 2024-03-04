@@ -1,10 +1,9 @@
 import socket
 from typing import Tuple, Dict, Callable, Optional
-import json
 
 import paramiko as pko
 
-from .socket_util import Request, create_tcp_server, transfer, receive_all
+from .socket_util import Request, create_tcp_server, transfer
 
 LOOPBACK = '127.0.0.1'
 IPVS_USERNAME = 'ipvs'
@@ -99,21 +98,6 @@ def create_ipvs_ssh_server(
     server = create_tcp_server(bind_addr, handle_request)
 
     return server
-
-def get_pubkey_from_ipvs_address(ipvs_addr: str) -> pko.PKey:
-    parts = ipvs_addr.strip().lower().split('.')
-
-    if parts[-1] != 'ipvs':
-        raise ValueError("Not an IPVS address")
-
-    # <pubkey hex>.<pubkey type>.ipvs
-
-    pubkey_hex = parts[-3]
-    pubkey_type = 'ssh-' + parts[-2]
-    
-    pubkey_bytes = bytes.fromhex(pubkey_hex)
-
-    return pko.PKey.from_type_string(pubkey_type, pubkey_bytes)
 
 def connect_to_ipvs_ssh_server(
         ssh_server_addr: Tuple[str, int], dest_port: int, 
