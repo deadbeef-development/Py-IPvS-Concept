@@ -18,15 +18,17 @@ def connect_to_tor(dest_addr: Tuple[str, int]):
         sock.close()
 
 @contextmanager
-def expose_to_tor(port_mappings: dict):
+def expose_to_tor(port_mappings: dict, key_type: str = 'NEW', key_content: str = 'BEST'):
     controller = Controller.from_port(port=9051)
 
     with controller:
         controller.authenticate()
 
         result: AddOnionResponse = controller.create_ephemeral_hidden_service(
-            port_mappings,
-            await_publication=True
+            ports=port_mappings,
+            await_publication=True,
+            key_type=key_type,
+            key_content=key_content
         )
 
         def cleanup():
