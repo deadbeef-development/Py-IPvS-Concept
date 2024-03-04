@@ -5,15 +5,17 @@ import socks
 from stem.control import Controller
 from stem.response.add_onion import AddOnionResponse
 
-
-
-def connect_to_tor(dest_addr: Tuple[str, int]) -> socks.socksocket:
+@contextmanager
+def connect_to_tor(dest_addr: Tuple[str, int]):
     sock = socks.socksocket()
 
     sock.set_proxy(proxy_type=socks.SOCKS5, addr='127.0.0.1', port=9050)
     sock.connect(dest_addr)
 
-    return sock
+    try:
+        yield sock
+    finally:
+        sock.close()
 
 @contextmanager
 def expose_to_tor(port_mappings: dict):
