@@ -1,5 +1,6 @@
 import socket
 from typing import Tuple, Dict, Callable, Optional
+from contextlib import contextmanager
 
 import paramiko as pko
 
@@ -63,6 +64,7 @@ class _IPVS_SSH_Server_Handler(pko.ServerInterface):
 
         return pko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
+@contextmanager
 def create_ipvs_ssh_server(
         ipvs_req_handlers: Dict[int, IPVS_Request_Handler],
         host_key: pko.PKey,
@@ -97,8 +99,12 @@ def create_ipvs_ssh_server(
 
     server = create_tcp_server(bind_addr, handle_request)
 
-    return server
+    try:
+        yield server
+    finally:
+        server.shutdown()
 
+@contextmanager
 def connect_to_ipvs_ssh_server(
         ssh_server_addr: Tuple[str, int], dest_port: int, 
         ssh_server_pubkey: pko.PKey, client_identity: pko.PKey, 
@@ -125,5 +131,8 @@ def connect_to_ipvs_ssh_server(
     transport = ssh_client.get_transport()
     chan = transport.open_channel('direct-tcpip', dest_addr, src_addr)
 
-    return chan
+    try:
+        yield chan
+    finally:
+        transport.close()
 
