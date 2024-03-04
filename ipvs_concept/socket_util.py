@@ -16,7 +16,7 @@ class Request:
         self.server = handler.server
 
 @contextmanager
-def create_tcp_server(bind_addr: Tuple[str, int], handle_request: Callable[[Request], None]) -> socketserver.TCPServer:
+def create_tcp_server(bind_addr: Tuple[str, int], handle_request: Callable[[Request], None]):
     class TCP_Handler(socketserver.BaseRequestHandler):
         def handle(self):
             req = Request(self)
