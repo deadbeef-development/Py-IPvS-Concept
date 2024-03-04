@@ -27,7 +27,10 @@ def create_tcp_server(bind_addr: Tuple[str, int], handle_request: Callable[[Requ
 
     server = Threaded_TCP_Server(bind_addr, TCP_Handler)
 
-    return server
+    try:
+        yield server
+    finally:
+        server.shutdown()
 
 def serve_file_tcp(bind_addr: Tuple[str, int], content: bytes):
     def handle_request(req: Request):
